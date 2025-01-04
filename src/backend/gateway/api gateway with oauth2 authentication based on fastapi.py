@@ -6,7 +6,9 @@
 # @Description: 基于fastapi实现的具有oauth2认证功能的api网关。
 # @version : V0.5
 
+from io import BytesIO
 from fastapi import Body, Depends, FastAPI, HTTPException,status,Request
+from fastapi.responses import StreamingResponse
 from fastapi.security import OAuth2PasswordRequestForm
 
 from typing import Annotated
@@ -17,6 +19,8 @@ ACCESS_TOKEN_EXPIRE_MINUTES = config["token"]["expires_time"]
 # 创建一个FastAPI实例
 app = FastAPI()
 
+custom_header_name = "X-Captcha-ID"
+
 # 允许跨域访问
 from fastapi.middleware.cors import CORSMiddleware
 origins = config["origins"]
@@ -26,6 +30,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=[custom_header_name,"Cache-Control"],  # 允许前端访问的头部,不如此设置客户端获取不到这些头信息
 )
 
 # 打印请求日志，可用于和客户端调试
@@ -46,15 +51,46 @@ async def log_request_details(request: Request):
     print(f"Headers: {headers}")
     print(f"Body: {body if body else 'No Body'}")
 
+
+'''
+图片验证码
+'''
+from util.captcha import generate_captcha
+from util.ttlcache import Cache,Error
+_cache = Cache(max_size=300, ttl=300)    # 30个缓存，每个缓存5分钟
+
+@app.get("/captcha")
+def get_captcha():
+
+    if _cache.is_full():
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many requests")
+    
+    captcha_id,captcha_text,captcha_image =  generate_captcha()
+    print(f"生成的验证码: {captcha_id} {captcha_text}")
+    result = _cache.add(captcha_id,(captcha_text,captcha_image))
+    if result != Error.OK:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many requests")
+
+    # 返回图片流
+    buffer = BytesIO()
+    captcha_image.save(buffer, format="PNG")
+    buffer.seek(0)
+    headers = {custom_header_name: captcha_id,"Cache-Control": "no-store"}
+    #print(headers)
+    return StreamingResponse(buffer, headers=headers, media_type="image/png")
+
+
 '''
 用户认证服务
 '''
 from util.token import create_access_token
 from common.user import authenticate_user,Token,User,get_current_active_user
 
+
 # 登录方法
 @app.post("/token")
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(),remember: bool|None=Body(None),log_details: None = Depends(log_request_details))-> Token:
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(),remember: bool|None=Body(None),
+    captcha_id: str|None=Body(None), captcha_input: str|None=Body(None),log_details: None = Depends(log_request_details))-> Token:
     '''
     OAuth2PasswordRequestForm 是用以下几项内容声明表单请求体的类依赖项：
 
@@ -62,7 +98,21 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     password
     scope、grant_type、client_id等可选字段。
     '''
+
+    # 校验验证码    
+    error,value = _cache.get(captcha_id)
+    if error != Error.OK:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired captcha ID")
     
+    captcha_text = value[0]
+
+    if not captcha_text:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired captcha ID")
+
+    if captcha_text.upper() != captcha_input.upper():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Incorrect captcha")
+    
+    # 用户认证
     user = authenticate_user(form_data.username, form_data.password)
     if not user:
         raise HTTPException(
@@ -136,6 +186,6 @@ if __name__ == "__main__":
     import uvicorn
 
     # 交互式API文档地址：
-    # http://127.0.0.1:5001/docs/ 
-    # http://127.0.0.1:5001/redoc/
+    # http://127.0.0.1:8000/docs/ 
+    # http://127.0.0.1:8000/redoc/
     uvicorn.run(app, host="0.0.0.0", port=8000)

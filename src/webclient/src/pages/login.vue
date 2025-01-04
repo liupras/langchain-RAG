@@ -28,6 +28,25 @@
                   prepend-inner-icon="mdi-key"
                   :rules="[rules.required, rules.max]"
                 ></v-text-field>
+                <v-container>
+                  <v-row>
+                    <v-text-field
+                      v-model="form_data.capchaText"
+                      label="输入验证码"
+                      variant="solo"
+                      :rules="[rules.required, rules.max]"
+                    ></v-text-field
+                    ><v-img
+                      :src="imageSrc"
+                      alt="验证码"
+                      class="mb-4"
+                      max-height="60"
+                      @click="refreshCaptcha"
+                      style="cursor: pointer"
+                    >
+                    </v-img>
+                  </v-row>
+                </v-container>
                 <v-checkbox
                   v-model="form_data.remember"
                   color="red"
@@ -59,27 +78,66 @@
 </template>
     
 <script setup>
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 
 import { setToken } from "@/assets/js/auth";
 
 const login_url = "http://127.0.0.1:8000/token";
+const capcha_url = "http://127.0.0.1:8000/captcha";
+
+const imageSrc = ref("");
 
 //表单数据
 const form_data = ref({
   username: "",
   password: "",
   remember: false,
+  capchaId: "",
+  capchaText: "",
 });
 
 const isLoading = ref(false);
 const error = ref(false);
 const error_msg = ref("");
 
+// 获取验证码
+const fetchCaptcha = async () => {
+  try {
+    let img_url = capcha_url + "?t=" + Date.now();
+    const response = await axios(img_url, { responseType: "blob" });  // 响应类型为 blob，非常重要！
+    console.log("获取验证码成功:", response);
+
+    form_data.value.capchaId = response.headers["x-captcha-id"]; // 验证码唯一标识符
+    console.log("验证码ID:", form_data.value.capchaId);
+    imageSrc.value = URL.createObjectURL(response.data);
+  } catch (error) {
+    console.log("获取验证码失败:", error);
+    if (error.code == "ERR_NETWORK") {
+      error_msg.value = "网络错误，无法连接到服务器。";
+    } else {
+      error_msg.value = error.response.data.detail;
+    }
+  }
+
+  if (error_msg.value != "") {
+    error.value = true;
+  }
+};
+
+// 刷新验证码
+const refreshCaptcha = () => {
+  fetchCaptcha();
+  form_data.value.capchaText = ""; // 清空用户输入
+};
+
+onMounted(() => {
+  fetchCaptcha();
+});
+
 // 获取路由实例
-import { useRoute ,useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 const route = useRoute();
 const router = useRouter();
 
@@ -87,7 +145,11 @@ const emits = defineEmits(["login"]);
 
 //提交
 async function submit() {
-  if (form_data.value.username === "" || form_data.value.password === "") {
+  if (
+    form_data.value.username === "" ||
+    form_data.value.password === "" ||
+    form_data.value.capchaText === ""
+  ) {
     return;
   }
 
@@ -99,6 +161,8 @@ async function submit() {
   formData.append("username", form_data.value.username);
   formData.append("password", form_data.value.password);
   formData.append("remember", form_data.value.remember);
+  formData.append("captcha_id", form_data.value.capchaId);
+  formData.append("captcha_input", form_data.value.capchaText);
 
   try {
     const response = await axios.post(login_url, formData, {
@@ -117,23 +181,20 @@ async function submit() {
     // 存储token
     setToken(token);
 
-    let userid =  decodedToken["sub"];
-    emits("login",userid);    
+    let userid = decodedToken["sub"];
+    emits("login", userid);
 
-    if (route.query && route.query['redirect']) {
-      router.push({ path: route.query['redirect']});
+    if (route.query && route.query["redirect"]) {
+      router.push({ path: route.query["redirect"] });
     } else {
       router.push({ path: "/" });
     }
   } catch (error) {
+    console.log("登录失败:", error);
     if (error.code == "ERR_NETWORK") {
       error_msg.value = "网络错误，无法连接到服务器。";
-    } else if (error.code == "ERR_BAD_REQUEST") {
-      if (error.response.status == 401) {
-        error_msg.value = "用户名或密码错误。";
-      }
     } else {
-      error_msg.value = error.message;
+      error_msg.value = error.response.data.detail;
     }
   }
 
@@ -142,18 +203,6 @@ async function submit() {
     error.value = true;
   }
 }
-
-import instance from "@/assets/js/axiosInstance";
-const testGet = () => {
-  instance.get("http://127.0.0.1:8000/users/me").then(
-    (response) => {
-      console.log("user is :", response.data);
-    },
-    (error) => {
-      console.log(error);
-    }
-  );
-};
 
 //校验规则
 const rules = {
