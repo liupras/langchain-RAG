@@ -57,7 +57,7 @@ async def log_request_details(request: Request):
 '''
 from util.captcha import generate_captcha
 from util.ttlcache import Cache,Error
-_cache = Cache(max_size=300, ttl=300)    # 30个缓存，每个缓存5分钟
+_cache = Cache(max_size=300, ttl=300)    # 300个缓存，每个缓存5分钟
 
 @app.get("/captcha")
 def get_captcha():

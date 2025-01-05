@@ -66,7 +66,7 @@ def _generate_captcha_image(captcha_text):
 
     return image
 
-import time 
+
 if __name__ == "__main__":
     c_id,c_text,c_imge = generate_captcha()
     print(c_id,c_text)
