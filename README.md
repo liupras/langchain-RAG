@@ -1,4 +1,4 @@
-# vuetify+langchain local RAG demo
+# vuetify+langchain local RAG
 
 ## Overview
 This system implements a micro-microservice architecture, and uses vuetify+langchain+local large model+local vector database to build a demonstration of the RAG system.   
