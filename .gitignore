@@ -136,3 +136,6 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+/src/backend/services/legal_consultation/app/logs
+/src/backend/services/legal_consultation/.env
+/src/backend/services/legal_consultation/.env_docker

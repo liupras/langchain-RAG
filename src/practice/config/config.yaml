@@ -1,0 +1,14 @@
+secret:   # 注意，不要使用这些key，它们不安全。
+  aes_key: IlovehHometownOK  # 16, 24, 或 32 字节
+  aes_iv: sumiaIsMyLoveUhm  # 16 字节
+  jwt_key: 09d25d094faa6ca2556c818155b7a9563b93f7099f6f0f4caa6cf63b88e8d1e7  # 用于JWT签名
+token: 
+  expires_time: 43200  #30天，客户端选择“30天内免登录”时生效
+  default_expires_time: 15  # 15分钟，客户端不选择“30天内免登录”时生效
+origins:   # CORS/跨域配置
+ - http://localhost
+ - http://localhost:3000
+services:   # 网关后面的服务
+  translation: http://127.0.0.1:5001
+  consulting: http://127.0.0.1:5002
+time_out: 90    # 秒。服务响应超时时间。

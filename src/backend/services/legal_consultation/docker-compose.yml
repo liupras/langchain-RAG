@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  api:
+    image: zf-legal-ai-api:0.5.1
+    container_name: zf-legal-ai-api
+    ports:
+      - "11014:11014"
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+    env_file:
+      - .env_docker
+    networks:
+      - ai-net
+
+networks:
+  ai-net:
+    driver: bridge

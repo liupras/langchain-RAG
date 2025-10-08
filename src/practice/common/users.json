@@ -1,0 +1,20 @@
+{
+    "liupras@gmail.com": {
+        "userid": "liupras@gmail.com",
+        "username": "liu",
+        "full_name": "Jack Liu",
+        "email": "liupras@gmail.com",
+        "hashed_password": "$2b$12$XMT2KGR.3pBUszKSl91I6uJDWVZIncZMyqgXzH1KnWqZcPZ/k5pLu",
+		"_comment":"密码是：12345678",
+        "disabled": false
+	},
+	"56008507@qq.com": {
+        "userid": "56008507@qq.com",
+        "username": "wang",
+        "full_name": "Errin Wang",
+        "email": "56008507@qq.com",
+        "hashed_password": "$2b$12$WjyqXlyP/TCyysi0HwLWGenjP668dBswX39aKJzByZTlTDZ9kD.5e",
+		"_comment":"密码是：23456789",
+        "disabled": true
+	}
+}
